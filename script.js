@@ -100,8 +100,8 @@ async function train(model, data) {
     const fitCallBacks = tfvis.show.fitCallbacks(container, metrics);
 
     const BATCH_SIZE = 512;
-    const TRAIN_DATA_SIZE = 5500;
-    const TEST_DATA_SIZE = 1000;
+    const TRAIN_DATA_SIZE = 55000;
+    const TEST_DATA_SIZE = 10000;
 
     const [trainXs, trainYs] = tf.tidy(() => {
         const d = data.nextTrainBatch(TRAIN_DATA_SIZE);
@@ -140,6 +140,41 @@ async function run() {
                     }, model);
 
     await train(model, data);
+
+    await showAccuracy(model, data);
+    await showConfusion(model, data);
+}
+
+const classNames = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+
+function doPrediction(model, data, testDataSize = 5000) {
+    const IMAGE_WIDTH = 28;
+    const IMAGE_HEIGHT = 28;
+    const testData = data.nextTestBatch(testDataSize);
+    const testxs = testData.xs.reshape([testDataSize, IMAGE_WIDTH, IMAGE_HEIGHT, 1]);
+    const labels = testData.labels.argMax(-1);
+    const preds = model.predict(testxs).argMax(-1);
+
+    testxs.dispose();
+    return [preds, labels];
+}
+
+async function showAccuracy(model, data) {
+    const [preds, labels] = doPrediction(model, data);
+    const classAccuracy = await tfvis.metrics.perClassAccuracy(labels, preds);
+    const container = {name: 'Accuracy', tab: 'Evaluation'};
+    tfvis.show.perClassAccuracy(container, classAccuracy, classNames);
+
+    labels.dispose();
+}
+
+async function showConfusion(model, data) {
+    const [preds, labels] = doPrediction(model, data);
+    const confusionMatrix = await tfvis.metrics.confusionMatrix(labels, preds);
+    const container = {name: 'Confusion Matrix', tab: 'Evaluation'};
+    tfvis.render.confusionMatrix(container, {values: confusionMatrix, tickLabels: classNames});
+
+    labels.dispose();
 }
 
 document.addEventListener('DOMContentLoaded', run);
